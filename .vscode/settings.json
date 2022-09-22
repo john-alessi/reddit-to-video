@@ -1,0 +1,12 @@
+{
+    "editor.detectIndentation": false,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "files.exclude": {
+        "package-lock.json": true,
+        "LICENSE": true,
+        "node_modules": true
+    }
+}
