@@ -7,7 +7,7 @@ import config from 'mespeak/src/mespeak_config.json'
 
 const ffmpeg = createFFmpeg({ log: true })
 
-export default function App() {
+export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
     const [gif, setGif] = useState<string>()
@@ -43,7 +43,7 @@ export default function App() {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
-        setThreadText(thread[0])
+        setThreadText(thread.toString())
     }
 
     useEffect(() => {
@@ -87,24 +87,34 @@ async function getThreadData(url: string): Promise<string[]> {
     return getSingleCommentThread(topLevelComments, commentId)
 }
 
+interface ThreadNode {
+    text: string[]
+    comment: any
+}
+
 function getSingleCommentThread(
     topLevelComments: any[],
     childCommentId: string,
 ): string[] {
-    var queue: any[] = []
+    var queue: ThreadNode[] = []
     topLevelComments.forEach((comment) => {
         if (comment.kind == 't1') {
-            queue.push(comment)
+            queue.push({ comment: comment, text: [comment.data.body] })
         }
     })
     while (queue.length != 0) {
-        var next = queue.shift()
-        if (next.data.id == childCommentId) {
-            return [next.data.body]
+        var currentNode = queue.shift()
+        if (currentNode?.comment?.data?.id == childCommentId) {
+            return currentNode.text
         }
-        getReplies(next).forEach((comment) => {
+        getReplies(currentNode?.comment).forEach((comment) => {
             if (comment.kind == 't1') {
-                queue.push(comment)
+                queue.push({
+                    comment: comment,
+                    text: (currentNode?.text ?? []).concat([
+                        comment.data.body as string,
+                    ]),
+                })
             }
         })
     }
