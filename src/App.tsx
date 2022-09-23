@@ -16,7 +16,6 @@ const ffmpeg = createFFmpeg({ log: true })
 export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
-    const [gif, setGif] = useState<string>()
     const [outputVideo, setOutputVideo] = useState<string>()
     const [commentUrl, setCommentUrl] = useState(defaultUrl)
 
@@ -25,26 +24,6 @@ export default function App(): JSX.Element {
         loadConfig(config)
         loadVoice(voice)
         setReady(true)
-    }
-
-    const convertToGif = async () => {
-        ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video as File))
-        await ffmpeg.run(
-            '-i',
-            'test.mp4',
-            '-t',
-            '2.5',
-            '-ss',
-            '20',
-            '-f',
-            'gif',
-            'out.gif',
-        )
-        const data = ffmpeg.FS('readFile', 'out.gif')
-        const url = URL.createObjectURL(
-            new Blob([data.buffer], { type: 'image/gif' }),
-        )
-        setGif(url)
     }
 
     const generateVideo = async () => {
@@ -60,7 +39,7 @@ export default function App(): JSX.Element {
         }
 
         for (let i = 0; i < thread.length; i++) {
-            var audioUrl = speak('hello', { rawdata: 'mime' })
+            var audioUrl = speak(thread[i], { rawdata: 'mime' })
             ffmpeg.FS(
                 'writeFile',
                 'audio_' + i + '.wav',
@@ -73,8 +52,13 @@ export default function App(): JSX.Element {
             'test.mp4',
             '-i',
             'img_0.png',
+            '-i',
+            'audio_0.wav',
             '-filter_complex',
-            "[0][1]overlay=x=50:y=50:enable='between(t,3,10)'",
+            "[0][1]overlay=x=50:y=50:enable='between(t,1,30)'",
+            '-map',
+            '2:a',
+            '-shortest',
             'output.mp4',
         )
 
@@ -104,8 +88,6 @@ export default function App(): JSX.Element {
                 onChange={(e) => setCommentUrl(e.target.value ?? '')}
             />
             <button onClick={generateVideo}>get comment thread</button>
-            <button onClick={convertToGif}>Convert</button>
-            {gif && <img src={gif} width='250' />}
             {outputVideo && <video controls width='250' src={outputVideo} />}
         </div>
     ) : (
