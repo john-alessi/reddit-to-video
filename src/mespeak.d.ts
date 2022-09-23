@@ -21,5 +21,9 @@ declare module 'mespeak' {
     //     callback?: (success: boolean, id: string) => void,
     // ): void
     export function loadVoice(voice: MespeakVoice): void
-    export function speak(input: string): void
+    export function speak(
+        input: string,
+        options?: any,
+        callback?: (success: boolean, id: string, stream: any) => void,
+    ): any
 }

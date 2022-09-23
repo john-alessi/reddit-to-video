@@ -50,6 +50,7 @@ export default function App(): JSX.Element {
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
         ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video as File))
+
         for (let i = 0; i < thread.length; i++) {
             ffmpeg.FS(
                 'writeFile',
@@ -57,6 +58,16 @@ export default function App(): JSX.Element {
                 await fetchFile(await generateImage(thread[i])),
             )
         }
+
+        for (let i = 0; i < thread.length; i++) {
+            var audioUrl = speak('hello', { rawdata: 'mime' })
+            ffmpeg.FS(
+                'writeFile',
+                'audio_' + i + '.wav',
+                await fetchFile(audioUrl),
+            )
+        }
+
         await ffmpeg.run(
             '-i',
             'test.mp4',
@@ -66,6 +77,7 @@ export default function App(): JSX.Element {
             "[0][1]overlay=x=50:y=50:enable='between(t,3,10)'",
             'output.mp4',
         )
+
         const data = ffmpeg.FS('readFile', 'output.mp4')
         const url = URL.createObjectURL(
             new Blob([data.buffer], { type: 'video/mp4' }),
