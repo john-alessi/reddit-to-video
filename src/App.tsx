@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg'
 import { loadConfig, loadVoice, speak } from 'mespeak'
+
+import { generateImage } from './ImageGeneration'
+
 import './App.css'
 import voice from 'mespeak/voices/en/en-us.json'
 import config from 'mespeak/src/mespeak_config.json'
+
+const defaultUrl =
+    'https://www.reddit.com/r/AskReddit/comments/xkrpev/comment/iphd4tt/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = createFFmpeg({ log: true })
 
@@ -11,7 +17,7 @@ export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
     const [gif, setGif] = useState<string>()
-    const [commentUrl, setCommentUrl] = useState('')
+    const [commentUrl, setCommentUrl] = useState(defaultUrl)
     const [threadText, setThreadText] = useState('')
 
     const load = async () => {
@@ -43,6 +49,8 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
+        var img = await generateImage(thread[0])
+        document.write('<img src="' + img + '"/>')
         setThreadText(thread.toString())
     }
 
@@ -61,6 +69,7 @@ export default function App(): JSX.Element {
             />
             <input
                 type='text'
+                defaultValue={defaultUrl}
                 onChange={(e) => setCommentUrl(e.target.value ?? '')}
             />
             <button onClick={generateVideo}>get comment thread</button>
