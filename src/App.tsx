@@ -17,8 +17,8 @@ export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
     const [gif, setGif] = useState<string>()
+    const [outputVideo, setOutputVideo] = useState<string>()
     const [commentUrl, setCommentUrl] = useState(defaultUrl)
-    const [threadText, setThreadText] = useState('')
 
     const load = async () => {
         await ffmpeg.load()
@@ -49,9 +49,28 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
-        var img = await generateImage(thread[0])
-        document.write('<img src="' + img + '"/>')
-        setThreadText(thread.toString())
+        ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video as File))
+        for (let i = 0; i < thread.length; i++) {
+            ffmpeg.FS(
+                'writeFile',
+                'img_' + i + '.png',
+                await fetchFile(await generateImage(thread[i])),
+            )
+        }
+        await ffmpeg.run(
+            '-i',
+            'test.mp4',
+            '-i',
+            'img_0.png',
+            '-filter_complex',
+            "[0][1]overlay=x=50:y=50:enable='between(t,3,10)'",
+            'output.mp4',
+        )
+        const data = ffmpeg.FS('readFile', 'output.mp4')
+        const url = URL.createObjectURL(
+            new Blob([data.buffer], { type: 'video/mp4' }),
+        )
+        setOutputVideo(url)
     }
 
     useEffect(() => {
@@ -75,8 +94,7 @@ export default function App(): JSX.Element {
             <button onClick={generateVideo}>get comment thread</button>
             <button onClick={convertToGif}>Convert</button>
             {gif && <img src={gif} width='250' />}
-            <button onClick={(e) => speak(threadText)}>Speak</button>
-            <p>{threadText}</p>
+            {outputVideo && <video controls width='250' src={outputVideo} />}
         </div>
     ) : (
         <p>loading...</p>
