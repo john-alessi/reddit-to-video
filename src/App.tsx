@@ -55,10 +55,12 @@ export default function App(): JSX.Element {
             '-i',
             'audio_0.wav',
             '-filter_complex',
-            "[0][1]overlay=x=50:y=50:enable='between(t,1,30)'",
+            "[0][1]overlay=x=50:y=50:enable='between(t,2,30)';\
+            [2:a]adelay=2000[delayedaudio]",
             '-map',
-            '2:a',
-            '-shortest',
+            '[delayedaudio]',
+            '-t',
+            '30',
             'output.mp4',
         )
 
@@ -87,7 +89,7 @@ export default function App(): JSX.Element {
                 defaultValue={defaultUrl}
                 onChange={(e) => setCommentUrl(e.target.value ?? '')}
             />
-            <button onClick={generateVideo}>get comment thread</button>
+            <button onClick={generateVideo}>Generate Video</button>
             {outputVideo && <video controls width='250' src={outputVideo} />}
         </div>
     ) : (
