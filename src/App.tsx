@@ -28,6 +28,7 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
+        var durations = Array(thread.length).fill(0)
         ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video as File))
 
         for (let i = 0; i < thread.length; i++) {
@@ -36,18 +37,22 @@ export default function App(): JSX.Element {
                 'img_' + i + '.png',
                 await fetchFile(await generateImage(thread[i])),
             )
-        }
 
-        for (let i = 0; i < thread.length; i++) {
-            var audioUrl = speak(thread[i], { rawdata: 'mime' })
+            let audioUrl = speak(thread[i], { rawdata: 'mime' })
             ffmpeg.FS(
                 'writeFile',
                 'audio_' + i + '.wav',
                 await fetchFile(audioUrl),
             )
+
+            let x = new Audio()
+            x.addEventListener('loadedmetadata', (e) => {
+                durations[i] = (e.target as HTMLAudioElement).duration
+            })
+            x.src = audioUrl
         }
 
-        await ffmpeg.run(
+        var command = [
             '-i',
             'test.mp4',
             '-i',
@@ -56,13 +61,15 @@ export default function App(): JSX.Element {
             'audio_0.wav',
             '-filter_complex',
             "[0][1]overlay=x=50:y=50:enable='between(t,2,30)';\
-            [2:a]adelay=2000[delayedaudio]",
+        [2:a]adelay=2000[delayedaudio]",
             '-map',
             '[delayedaudio]',
             '-t',
             '30',
             'output.mp4',
-        )
+        ]
+
+        await ffmpeg.run.apply(ffmpeg, command)
 
         const data = ffmpeg.FS('readFile', 'output.mp4')
         const url = URL.createObjectURL(
