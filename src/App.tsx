@@ -28,7 +28,7 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
-        var durations = Array(thread.length).fill(0)
+        var timestamps = Array(thread.length + 1).fill(0)
         var command: string[] = ['-i', 'background_video.mp4']
 
         ffmpeg.FS(
@@ -57,7 +57,8 @@ export default function App(): JSX.Element {
 
             let audioElement = new Audio()
             audioElement.addEventListener('loadedmetadata', (e) => {
-                durations[i] = (e.target as HTMLAudioElement).duration
+                timestamps[i + 1] =
+                    timestamps[i] + (e.target as HTMLAudioElement).duration
             })
             audioElement.src = audioUrl
 
@@ -66,9 +67,9 @@ export default function App(): JSX.Element {
 
         var filters: string[] = [
             "[0][1]overlay=x=50:y=50:enable='between(t," +
-                2 +
+                timestamps[0] +
                 ',' +
-                30 +
+                timestamps[1] +
                 ")'[v1]",
         ]
 
@@ -80,9 +81,9 @@ export default function App(): JSX.Element {
                     '[' +
                     (i + 1) +
                     "]overlay=x=50:y=50:enable='between(t," +
-                    2 +
+                    timestamps[i - 1] +
                     ',' +
-                    30 +
+                    timestamps[i] +
                     ")'[v" +
                     (i + 1) +
                     ']',
