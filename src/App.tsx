@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg'
-import { loadConfig, loadVoice, speak } from 'mespeak'
 
 import { generateImage } from './ImageGeneration'
+import { getThreadData } from './ThreadData'
+import { MeSpeakNarrator, INarrator } from './Narration'
 
 import './App.css'
-import voice from 'mespeak/voices/en/en-us.json'
-import config from 'mespeak/src/mespeak_config.json'
 
 const defaultUrl =
     'https://www.reddit.com/r/AskReddit/comments/xkrpev/comment/iphd4tt/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = createFFmpeg({ log: true })
+const narrator: INarrator = new MeSpeakNarrator()
 
 export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
@@ -23,8 +23,6 @@ export default function App(): JSX.Element {
         if (!ffmpeg.isLoaded()) {
             await ffmpeg.load()
         }
-        loadConfig(config)
-        loadVoice(voice)
         setReady(true)
     }
 
@@ -54,54 +52,17 @@ export default function App(): JSX.Element {
         for (let i = 0; i < thread.length; i++) {
             let audioPath = 'audio_' + i + '.wav'
 
-            let audioUrl = speak(thread[i], { rawdata: 'mime' })
-            ffmpeg.FS('writeFile', audioPath, await fetchFile(audioUrl))
+            let audio = await narrator.narrate(thread[i])
+            ffmpeg.FS('writeFile', audioPath, await fetchFile(audio.url))
 
-            timestamps[i + 1] =
-                timestamps[i] + (await getAudioDuration(audioUrl))
+            timestamps[i + 1] = timestamps[i] + audio.duration
 
             command = command.concat('-i', audioPath)
         }
 
-        var filters: string[] = [
-            "[0][1]overlay=x=50:y=50:enable='between(t," +
-                timestamps[0] +
-                ',' +
-                timestamps[1] +
-                ")'[v1]",
-        ]
-
-        for (let i = 1; i < thread.length; i++) {
-            filters = filters.concat(
-                '[v' +
-                    i +
-                    ']' +
-                    '[' +
-                    (i + 1) +
-                    "]overlay=x=50:y=50:enable='between(t," +
-                    timestamps[i] +
-                    ',' +
-                    timestamps[i + 1] +
-                    ")'[v" +
-                    (i + 1) +
-                    ']',
-            )
-        }
-
-        var audioFilter: string = ''
-        for (let i = 0; i < thread.length; i++) {
-            audioFilter = audioFilter.concat(
-                '[' + (i + thread.length + 1) + ':a]',
-            )
-        }
-        audioFilter = audioFilter.concat(
-            'concat=n=' + thread.length + ':a=1:v=0[concatAudio]',
-        )
-        filters = filters.concat(audioFilter)
-
         command = command.concat(
             '-filter_complex',
-            filters.join(';'),
+            getFilter(thread.length, timestamps),
             '-map',
             '[v' + thread.length + ']',
             '-map',
@@ -145,65 +106,40 @@ export default function App(): JSX.Element {
     )
 }
 
-async function getThreadData(url: string): Promise<string[]> {
-    var commentResponse = await fetch(url.split('?')[0] + '.json')
-    var commentJson = await commentResponse.json()
-    var commentId: string = commentJson[1].data.children[0].data.id
-    var permalink: string = commentJson[0].data.children[0].data.permalink
-    var threadResponse = await fetch(
-        'https://www.reddit.com/' + permalink + '.json',
-    )
-    var threadJson = await threadResponse.json()
-    var topLevelComments = threadJson[1].data.children
-    return getSingleCommentThread(topLevelComments, commentId)
-}
+function getFilter(numComments: number, timestamps: number[]): string {
+    var filters: string[] = [
+        "[0][1]overlay=x=50:y=50:enable='between(t," +
+            timestamps[0] +
+            ',' +
+            timestamps[1] +
+            ")'[v1]",
+    ]
 
-interface ThreadNode {
-    text: string[]
-    comment: any
-}
-
-function getSingleCommentThread(
-    topLevelComments: any[],
-    childCommentId: string,
-): string[] {
-    var queue: ThreadNode[] = []
-    topLevelComments.forEach((comment) => {
-        if (comment.kind == 't1') {
-            queue.push({ comment: comment, text: [comment.data.body] })
-        }
-    })
-    while (queue.length != 0) {
-        var currentNode = queue.shift()
-        if (currentNode?.comment?.data?.id == childCommentId) {
-            return currentNode.text
-        }
-        getReplies(currentNode?.comment).forEach((comment) => {
-            if (comment.kind == 't1') {
-                queue.push({
-                    comment: comment,
-                    text: (currentNode?.text ?? []).concat([
-                        comment.data.body as string,
-                    ]),
-                })
-            }
-        })
+    for (let i = 1; i < numComments; i++) {
+        filters = filters.concat(
+            '[v' +
+                i +
+                ']' +
+                '[' +
+                (i + 1) +
+                "]overlay=x=50:y=50:enable='between(t," +
+                timestamps[i] +
+                ',' +
+                timestamps[i + 1] +
+                ")'[v" +
+                (i + 1) +
+                ']',
+        )
     }
 
-    return ['Failed']
-}
+    var audioFilter: string = ''
+    for (let i = 0; i < numComments; i++) {
+        audioFilter = audioFilter.concat('[' + (i + numComments + 1) + ':a]')
+    }
+    audioFilter = audioFilter.concat(
+        'concat=n=' + numComments + ':a=1:v=0[concatAudio]',
+    )
+    filters = filters.concat(audioFilter)
 
-function getReplies(comment: any): any[] {
-    let children = comment?.data?.replies?.data?.children
-    return children ?? []
-}
-
-function getAudioDuration(audioUrl: string): Promise<number> {
-    return new Promise<number>((resolve) => {
-        let audioElement = new Audio()
-        audioElement.addEventListener('loadedmetadata', (e) => {
-            resolve((e.target as HTMLAudioElement).duration)
-        })
-        audioElement.src = audioUrl
-    })
+    return filters.join(';')
 }

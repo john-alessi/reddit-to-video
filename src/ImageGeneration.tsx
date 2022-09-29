@@ -2,12 +2,34 @@ import ReactDomServer from 'react-dom/server'
 import html2canvas from 'html2canvas'
 import './GeneratedImage.css'
 
-export async function generateImage(text: string): Promise<string> {
-    let element: JSX.Element = (
-        <div id='imagediv'>
-            <h3>{text}</h3>
-        </div>
-    )
+import { Comment } from './ThreadData'
+
+export async function generateImage(comment: Comment): Promise<string> {
+    let element: JSX.Element
+
+    if (comment.type == 'reply') {
+        element = (
+            <div id='imagediv'>
+                <h3>{comment.body}</h3>
+            </div>
+        )
+    } else if (comment.type == 'text') {
+        element = (
+            <div id='imagediv'>
+                <h2>{comment.title}</h2>
+                <h3>{comment.body}</h3>
+            </div>
+        )
+    } else if (comment.type == 'image') {
+        element = (
+            <div id='imagediv'>
+                <h3>{comment.body}</h3>
+            </div>
+        )
+    } else {
+        element = <p>error</p>
+    }
+
     let str = ReactDomServer.renderToStaticMarkup(element)
     let div = document.createElement('div')
     div.innerHTML = str
