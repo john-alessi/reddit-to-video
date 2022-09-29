@@ -1,3 +1,5 @@
+type PostType = 'image' | 'text' | 'reply'
+
 export async function getThreadData(url: string): Promise<Comment[]> {
     var commentResponse = await fetch(url.split('?')[0] + '.json')
     var commentJson = await commentResponse.json()
@@ -8,13 +10,28 @@ export async function getThreadData(url: string): Promise<Comment[]> {
     )
     var threadJson = await threadResponse.json()
     var topLevelComments = threadJson[1].data.children
+    var op = threadJson[0].data.children[0].data
+
+    var type: PostType
+    var imgUrl: string | undefined = undefined
+    if (op.post_hint == 'image') {
+        type = 'image'
+        imgUrl = op.url
+    } else if ('gallery_data' in op) {
+        type = 'image'
+        imgUrl =
+            'https://i.redd.it/' + op.gallery_data.items[0].media_id + '.jpg'
+    } else {
+        type = 'reply'
+    }
+
     var thread: Comment[] = [
         {
-            type: 'image',
-            title: threadJson[0].data.children[0].data.title,
-            body: threadJson[0].data.children[0].data.selftext,
-            user: threadJson[0].data.children[0].data.author,
-            imgUrl: threadJson[0].data.children[0].data.url,
+            type: type,
+            title: op.title,
+            body: op.selftext,
+            user: op.author,
+            imgUrl: imgUrl,
         },
     ]
     return thread.concat(getSingleCommentThread(topLevelComments, commentId))
@@ -78,5 +95,5 @@ export interface Comment {
     body?: string
     title?: string
     imgUrl?: string
-    type: 'text' | 'image' | 'reply'
+    type: PostType
 }
