@@ -28,7 +28,7 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
-        var timestamps = Array(thread.length + 1).fill(0)
+        var timestamps: number[] = Array(thread.length + 1).fill(0)
         var command: string[] = ['-i', 'background_video.mp4']
 
         ffmpeg.FS(
@@ -67,7 +67,8 @@ export default function App(): JSX.Element {
             '[v' + thread.length + ']',
             '-map',
             '[concatAudio]',
-            '-shortest',
+            '-t',
+            Math.ceil(timestamps[thread.length]).toString(),
             'output.mp4',
         )
 
