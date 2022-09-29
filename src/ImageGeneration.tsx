@@ -23,7 +23,8 @@ export async function generateImage(comment: Comment): Promise<string> {
     } else if (comment.type == 'image') {
         element = (
             <div id='imagediv'>
-                <h3>{comment.body}</h3>
+                <h3>{comment.title}</h3>
+                <img src={comment.imgUrl} crossOrigin='anonymous' />
             </div>
         )
     } else {
@@ -40,6 +41,8 @@ export async function generateImage(comment: Comment): Promise<string> {
         backgroundColor: null,
         windowWidth: 500,
         windowHeight: 500,
+        useCORS: true,
+        proxy: comment.imgUrl,
     })
     document.body.removeChild(div)
     return canvas.toDataURL('image/png', 1.0)

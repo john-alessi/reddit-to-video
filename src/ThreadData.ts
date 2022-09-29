@@ -10,10 +10,11 @@ export async function getThreadData(url: string): Promise<Comment[]> {
     var topLevelComments = threadJson[1].data.children
     var thread: Comment[] = [
         {
-            type: 'text',
+            type: 'image',
             title: threadJson[0].data.children[0].data.title,
             body: threadJson[0].data.children[0].data.selftext,
             user: threadJson[0].data.children[0].data.author,
+            imgUrl: threadJson[0].data.children[0].data.url,
         },
     ]
     return thread.concat(getSingleCommentThread(topLevelComments, commentId))
