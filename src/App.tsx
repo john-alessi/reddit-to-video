@@ -20,7 +20,9 @@ export default function App(): JSX.Element {
     const [commentUrl, setCommentUrl] = useState(defaultUrl)
 
     const load = async () => {
-        await ffmpeg.load()
+        if (!ffmpeg.isLoaded()) {
+            await ffmpeg.load()
+        }
         loadConfig(config)
         loadVoice(voice)
         setReady(true)
@@ -55,14 +57,10 @@ export default function App(): JSX.Element {
             let audioUrl = speak(thread[i], { rawdata: 'mime' })
             ffmpeg.FS('writeFile', audioPath, await fetchFile(audioUrl))
 
-            let audioElement = new Audio()
-            audioElement.addEventListener('loadedmetadata', (e) => {
-                timestamps[i + 1] =
-                    timestamps[i] + (e.target as HTMLAudioElement).duration
-            })
-            audioElement.src = audioUrl
+            timestamps[i + 1] =
+                timestamps[i] + (await getAudioDuration(audioUrl))
 
-            //command = command.concat('-i', audioPath)
+            command = command.concat('-i', audioPath)
         }
 
         var filters: string[] = [
@@ -81,20 +79,34 @@ export default function App(): JSX.Element {
                     '[' +
                     (i + 1) +
                     "]overlay=x=50:y=50:enable='between(t," +
-                    timestamps[i - 1] +
-                    ',' +
                     timestamps[i] +
+                    ',' +
+                    timestamps[i + 1] +
                     ")'[v" +
                     (i + 1) +
                     ']',
             )
         }
 
+        var audioFilter: string = ''
+        for (let i = 0; i < thread.length; i++) {
+            audioFilter = audioFilter.concat(
+                '[' + (i + thread.length + 1) + ':a]',
+            )
+        }
+        audioFilter = audioFilter.concat(
+            'concat=n=' + thread.length + ':a=1:v=0[concatAudio]',
+        )
+        filters = filters.concat(audioFilter)
+
         command = command.concat(
             '-filter_complex',
             filters.join(';'),
             '-map',
             '[v' + thread.length + ']',
+            '-map',
+            '[concatAudio]',
+            '-shortest',
             'output.mp4',
         )
 
@@ -184,4 +196,14 @@ function getSingleCommentThread(
 function getReplies(comment: any): any[] {
     let children = comment?.data?.replies?.data?.children
     return children ?? []
+}
+
+function getAudioDuration(audioUrl: string): Promise<number> {
+    return new Promise<number>((resolve) => {
+        let audioElement = new Audio()
+        audioElement.addEventListener('loadedmetadata', (e) => {
+            resolve((e.target as HTMLAudioElement).duration)
+        })
+        audioElement.src = audioUrl
+    })
 }
