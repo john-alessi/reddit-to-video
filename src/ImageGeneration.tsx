@@ -10,12 +10,14 @@ export async function generateImage(comment: Comment): Promise<string> {
     if (comment.type == 'reply') {
         element = (
             <div id='imagediv'>
+                <p>{comment.user}</p>
                 <h3>{comment.body}</h3>
             </div>
         )
     } else if (comment.type == 'text') {
         element = (
             <div id='imagediv'>
+                <p>{comment.user}</p>
                 <h2>{comment.title}</h2>
                 <h3>{comment.body}</h3>
             </div>
@@ -23,6 +25,7 @@ export async function generateImage(comment: Comment): Promise<string> {
     } else if (comment.type == 'image') {
         element = (
             <div id='imagediv'>
+                <p>{comment.user}</p>
                 <h3>{comment.title}</h3>
                 <img src={comment.imgUrl} crossOrigin='anonymous' />
             </div>

@@ -22,19 +22,45 @@ export async function getThreadData(url: string): Promise<Comment[]> {
         imgUrl =
             'https://i.redd.it/' + op.gallery_data.items[0].media_id + '.jpg'
     } else {
-        type = 'reply'
+        type = 'text'
     }
 
-    var thread: Comment[] = [
-        {
-            type: type,
-            title: op.title,
-            body: op.selftext,
-            user: op.author,
-            imgUrl: imgUrl,
-        },
-    ]
-    return thread.concat(getSingleCommentThread(topLevelComments, commentId))
+    var firstComment = {
+        type: type,
+        title: op.title,
+        body: op.selftext,
+        user: op.author,
+        imgUrl: imgUrl,
+    }
+
+    var thread: Comment[] = splitComment(firstComment)
+    var replies: Comment[] = getSingleCommentThread(topLevelComments, commentId)
+        .map((c) => splitComment(c))
+        .flat()
+    return thread.concat(replies)
+}
+
+function splitComment(comment: Comment): Comment[] {
+    var results: Comment[] = []
+    var remainder: Comment = comment
+    if (comment.type != 'reply') {
+        results = results.concat({
+            type: comment.type,
+            title: comment.title,
+            user: comment.user,
+            imgUrl: comment.imgUrl,
+        })
+        remainder = { user: comment.user, body: comment.body, type: 'reply' }
+    }
+
+    var sentences: Comment[] =
+        remainder.body
+            ?.split(/(?<=[\.\?!])/g)
+            .map((s) => ({ type: 'reply', body: s })) ?? []
+
+    sentences[0].user = comment.user
+
+    return results.concat(sentences)
 }
 
 interface ThreadNode {
@@ -54,7 +80,7 @@ function getSingleCommentThread(
                 commentData: [
                     {
                         body: comment.data.body,
-                        user: 'someUser',
+                        user: comment.data.author,
                         type: 'reply',
                     },
                 ],
@@ -73,7 +99,7 @@ function getSingleCommentThread(
                     commentData: (currentNode?.commentData ?? []).concat([
                         {
                             body: comment.data.body,
-                            user: 'someUser',
+                            user: comment.data.author,
                             type: 'reply',
                         },
                     ]),
@@ -91,7 +117,7 @@ function getReplies(comment: any): any[] {
 }
 
 export interface Comment {
-    user: string
+    user?: string
     body?: string
     title?: string
     imgUrl?: string

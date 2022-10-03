@@ -8,7 +8,7 @@ import { MeSpeakNarrator, INarrator } from './Narration'
 import './App.css'
 
 const defaultUrl =
-    'https://www.reddit.com/r/AskReddit/comments/xkrpev/comment/iphd4tt/?utm_source=share&utm_medium=web2x&context=3'
+    'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = createFFmpeg({ log: true })
 const narrator: INarrator = new MeSpeakNarrator()
