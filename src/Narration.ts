@@ -1,4 +1,10 @@
-import { loadConfig, loadVoice, speak } from 'mespeak'
+import {
+    loadConfig,
+    loadVoice,
+    speak,
+    isVoiceLoaded,
+    isConfigLoaded,
+} from 'mespeak'
 import voice from 'mespeak/voices/en/en-us.json'
 import config from 'mespeak/src/mespeak_config.json'
 
@@ -15,8 +21,13 @@ export interface Audio {
 
 export class MeSpeakNarrator implements INarrator {
     constructor() {
-        loadConfig(config)
-        loadVoice(voice)
+        if (!isConfigLoaded()) {
+            loadConfig(config)
+        }
+
+        if (!isVoiceLoaded()) {
+            loadVoice(voice)
+        }
     }
 
     async narrate(comment: Comment): Promise<Audio> {

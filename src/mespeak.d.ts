@@ -15,6 +15,8 @@ declare module 'mespeak' {
     }
 
     export function loadConfig(config: MespeakConfig): void
+    export function isVoiceLoaded(): boolean
+    export function isConfigLoaded(): boolean
 
     // export function loadConfig(
     //     url: string,
