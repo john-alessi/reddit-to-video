@@ -1,0 +1,10 @@
+#imagediv {
+    float: left;
+    max-width: 496px;
+    padding: 5px;
+    margin: 0;
+    color: darkslategray;
+    background-color: wheat;
+    border: 2px solid darkslategray;
+    overflow-x: auto;
+}
