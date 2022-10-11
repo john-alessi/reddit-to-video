@@ -27,7 +27,7 @@ export async function generateImage(comment: Comment): Promise<string> {
             <div id='imagediv'>
                 <p>{comment.user}</p>
                 <h3>{comment.title}</h3>
-                <img src={comment.imgUrl} crossOrigin='anonymous' />
+                <img src={comment.imgUrl} crossOrigin='anonymous' width={496}/>
             </div>
         )
     } else {

@@ -109,7 +109,8 @@ export default function App(): JSX.Element {
 
 function getFilter(numComments: number, timestamps: number[]): string {
     var filters: string[] = [
-        "[0][1]overlay=x=50:y=50:enable='between(t," +
+        "[0:v]crop=in_h*9/16:in_h[cropped]",
+        "[cropped][1]overlay=x=50:y=50:enable='between(t," +
             timestamps[0] +
             ',' +
             timestamps[1] +
