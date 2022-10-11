@@ -29,7 +29,12 @@ export default function App(): JSX.Element {
     const generateVideo = async () => {
         var thread = await getThreadData(commentUrl)
         var timestamps: number[] = Array(thread.length + 1).fill(0)
-        var command: string[] = ['-stream_loop', '-1', '-i', 'background_video.mp4']
+        var command: string[] = [
+            '-stream_loop',
+            '-1',
+            '-i',
+            'background_video.mp4',
+        ]
 
         ffmpeg.FS(
             'writeFile',
@@ -67,6 +72,8 @@ export default function App(): JSX.Element {
             '[v' + thread.length + ']',
             '-map',
             '[concatAudio]',
+            '-preset',
+            'ultrafast',
             '-t',
             Math.ceil(timestamps[thread.length]).toString(),
             'output.mp4',
@@ -109,8 +116,9 @@ export default function App(): JSX.Element {
 
 function getFilter(numComments: number, timestamps: number[]): string {
     var filters: string[] = [
-        "[0:v]crop=in_h*9/16:in_h[cropped]",
-        "[cropped][1]overlay=x=50:y=50:enable='between(t," +
+        '[0:v]crop=in_h*9/16:in_h[cropped]',
+        '[cropped]scale=720:1280[resized]',
+        "[resized][1]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t," +
             timestamps[0] +
             ',' +
             timestamps[1] +
@@ -124,7 +132,7 @@ function getFilter(numComments: number, timestamps: number[]): string {
                 ']' +
                 '[' +
                 (i + 1) +
-                "]overlay=x=50:y=50:enable='between(t," +
+                "]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t," +
                 timestamps[i] +
                 ',' +
                 timestamps[i + 1] +
