@@ -27,7 +27,7 @@ export async function generateImage(comment: Comment): Promise<string> {
             <div id='imagediv'>
                 <p>{comment.user}</p>
                 <h3>{comment.title}</h3>
-                <img src={comment.imgUrl} crossOrigin='anonymous' width={496}/>
+                <img src={comment.imgUrl} crossOrigin='anonymous' width={390}/>
             </div>
         )
     } else {
@@ -39,11 +39,11 @@ export async function generateImage(comment: Comment): Promise<string> {
     div.innerHTML = str
     document.body.appendChild(div)
     const canvas = await html2canvas(div, {
-        width: 500,
-        height: 500,
+        width: 400,
+        height: 600,
         backgroundColor: null,
-        windowWidth: 500,
-        windowHeight: 500,
+        windowWidth: 400,
+        windowHeight: 600,
         useCORS: true,
         proxy: comment.imgUrl,
     })

@@ -1,7 +1,7 @@
 #imagediv {
     float: left;
-    max-width: 486px;
-    min-width: 486px;
+    max-width: 400px;
+    min-width: 400px;
     padding: 5px;
     margin: 0;
     color: gainsboro;
@@ -10,7 +10,7 @@
 }
 
 img {
-    width: 500;
-    max-width: 500;
-    max-height: 500;
+    width: 400;
+    max-width: 400;
+    max-height: 600;
 }

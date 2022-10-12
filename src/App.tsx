@@ -3,7 +3,7 @@ import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg'
 
 import { generateImage } from './ImageGeneration'
 import { getThreadData } from './ThreadData'
-import { MeSpeakNarrator, INarrator } from './Narration'
+import { INarrator, UberduckNarrator } from './Narration'
 
 import './App.css'
 
@@ -11,7 +11,7 @@ const defaultUrl =
     'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = createFFmpeg({ log: true })
-const narrator: INarrator = new MeSpeakNarrator()
+const narrator: INarrator = new UberduckNarrator('API_KEY', 'API_SECRET', 'shrek')
 
 export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
