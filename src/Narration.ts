@@ -11,7 +11,8 @@ import config from 'mespeak/src/mespeak_config.json'
 import { Comment } from './ThreadData'
 
 export interface INarrator {
-    narrate: (comment: Comment) => Promise<Audio>
+    narrate: (comment: Comment, voice: string) => Promise<Audio>
+    getVoices: () => Promise<string[]>
 }
 
 export interface Audio {
@@ -30,7 +31,11 @@ export class MeSpeakNarrator implements INarrator {
         }
     }
 
-    async narrate(comment: Comment): Promise<Audio> {
+    async getVoices() {
+        return ['en-us']
+    }
+
+    async narrate(comment: Comment, voice: string): Promise<Audio> {
         let url = speak((comment.title ?? '') + '  ' + (comment.body ?? ''), {
             rawdata: 'mime',
         })
@@ -49,18 +54,28 @@ interface UberduckJobStatus {
 export class UberduckNarrator implements INarrator {
     private apiKey: string
     private apiSecret: string
-    private voice: string
-    constructor(apiKey: string, apiSecret: string, voice: string) {
-        this.voice = voice
+
+    constructor(apiKey: string, apiSecret: string) {
         this.apiKey = apiKey
         this.apiSecret = apiSecret
     }
 
-    async narrate(comment: Comment): Promise<Audio> {
+    async getVoices() {
+        let response = await window.fetch(`https://api.uberduck.ai/voices?mode=tts-all`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${window.btoa(`${this.apiKey}:${this.apiSecret}`)}`
+            },
+        })
+        let json = await response.json()
+        return json.map((v: any) => v.name)
+    }
+
+    async narrate(comment: Comment, voice: string): Promise<Audio> {
         let text = (comment.title ?? '') + '  ' + (comment.body ?? '')
         let response = await window.fetch('https://api.uberduck.ai/speak', {
             method: 'POST',
-            body: `{"speech": "${text}","voice": "${this.voice}"}`,
+            body: `{"speech": "${text}","voice": "${voice}"}`,
             headers: {
                 'Authorization': `Basic ${window.btoa(`${this.apiKey}:${this.apiSecret}`)}`
             },
@@ -88,7 +103,7 @@ export class UberduckNarrator implements INarrator {
                     resolve(jobStatus.path)
                 }
                 else {
-                    setTimeout(tryGetStatus, 5000)
+                    setTimeout(tryGetStatus, 1000)
                 }
             }
 

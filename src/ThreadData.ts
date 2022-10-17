@@ -31,6 +31,7 @@ export async function getThreadData(url: string): Promise<Comment[]> {
         body: op.selftext,
         user: op.author,
         imgUrl: imgUrl,
+        subreddit: op.subreddit,
     }
 
     var thread: Comment[] = splitComment(firstComment)
@@ -127,4 +128,5 @@ export interface Comment {
     title?: string
     imgUrl?: string
     type: PostType
+    subreddit?: string
 }
