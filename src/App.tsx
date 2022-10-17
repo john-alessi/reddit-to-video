@@ -11,7 +11,7 @@ const defaultUrl =
     'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = createFFmpeg({ log: true })
-const narrator: INarrator = new MeSpeakNarrator()
+const narrator = new MeSpeakNarrator()
 const voices = await narrator.getVoices()
 
 export default function App(): JSX.Element {
@@ -47,7 +47,7 @@ export default function App(): JSX.Element {
         )
 
         for (let i = 0; i < thread.length; i++) {
-            setStatusMessage(`generating image ${i+1}/${thread.length}`)
+            setStatusMessage(`generating image ${i + 1}/${thread.length}`)
             let imagePath = 'img_' + i + '.png'
 
             ffmpeg.FS(
@@ -60,7 +60,7 @@ export default function App(): JSX.Element {
         }
 
         for (let i = 0; i < thread.length; i++) {
-            setStatusMessage(`generating audio ${i+1}/${thread.length}`)
+            setStatusMessage(`generating audio ${i + 1}/${thread.length}`)
             let audioPath = 'audio_' + i + '.wav'
 
             let audio = await narrator.narrate(thread[i], currentVoice)
@@ -71,13 +71,26 @@ export default function App(): JSX.Element {
             command = command.concat('-i', audioPath)
         }
 
-        ffmpeg.setLogger((logParams: {type: string, message: string}) => { 
-            if (logParams.type == 'fferr' && /time=(\d\d:\d\d:\d\d\.\d\d)/.test(logParams.message)) {
-                let match = logParams.message.match(/time=(\d\d:\d\d:\d\d\.\d\d)/)
+        ffmpeg.setLogger((logParams: { type: string; message: string }) => {
+            if (
+                logParams.type == 'fferr' &&
+                /time=(\d\d:\d\d:\d\d\.\d\d)/.test(logParams.message)
+            ) {
+                let match = logParams.message.match(
+                    /time=(\d\d:\d\d:\d\d\.\d\d)/,
+                )
                 if (match != null && match[1] != null) {
                     let hms = match[1].split(':')
-                    let seconds = 60*60*parseInt(hms[0], 10) + 60*parseInt(hms[1], 10) + parseFloat(hms[2])
-                    setStatusMessage(`encoding video (${(seconds/timestamps[thread.length]*100).toFixed(2)}%)`)
+                    let seconds =
+                        60 * 60 * parseInt(hms[0], 10) +
+                        60 * parseInt(hms[1], 10) +
+                        parseFloat(hms[2])
+                    setStatusMessage(
+                        `encoding video (${(
+                            (seconds / timestamps[thread.length]) *
+                            100
+                        ).toFixed(2)}%)`,
+                    )
                 }
             }
         })
@@ -113,23 +126,32 @@ export default function App(): JSX.Element {
 
     return ready ? (
         <div className='App'>
-            <select onChange={(e) => {setCurrentVoice(e.target.value)}}>
-                {
-                    voices.map((v) => <option value={v}>{v}</option>)
-                }
-            </select>
-            {video && (
-                <video controls width='250' src={URL.createObjectURL(video)} />
-            )}
-            <input
-                type='file'
-                onChange={(e) => setVideo(e.target.files?.item(0))}
-            />
-            <input
-                type='text'
-                defaultValue={defaultUrl}
-                onChange={(e) => setCommentUrl(e.target.value ?? '')}
-            />
+            <h1>reddit to tiktok converter</h1>
+            <div>
+                <label>tts voice </label>
+                <select
+                    onChange={(e) => {
+                        setCurrentVoice(e.target.value)
+                    }}>
+                    {voices.map((v) => (
+                        <option value={v}>{v}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <input
+                    type='file'
+                    onChange={(e) => setVideo(e.target.files?.item(0))}
+                />
+            </div>
+            <div>
+                <label>comment url </label>
+                <input
+                    type='text'
+                    defaultValue={defaultUrl}
+                    onChange={(e) => setCommentUrl(e.target.value ?? '')}
+                />
+            </div>
             <button onClick={generateVideo}>Generate Video</button>
             <p>{statusMessage}</p>
             {outputVideo && <video controls width='250' src={outputVideo} />}
