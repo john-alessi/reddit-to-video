@@ -41,6 +41,11 @@ export async function getThreadData(url: string): Promise<Comment[]> {
 }
 
 function splitComment(comment: Comment): Comment[] {
+
+    if (comment.body == undefined || comment.body.length == 0) {
+        return [comment]
+    }
+
     var results: Comment[] = []
     var remainder: Comment = comment
     if (comment.type != 'reply') {
