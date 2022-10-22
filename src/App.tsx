@@ -12,7 +12,6 @@ const defaultUrl =
 
 const ffmpeg = createFFmpeg({ log: true })
 const narrator = new MeSpeakNarrator()
-const voices = await narrator.getVoices()
 
 const BG_VID_PATH = 'output.mp4'
 
@@ -21,6 +20,7 @@ export default function App(): JSX.Element {
     const [video, setVideo] = useState<File | null>()
     const [outputVideo, setOutputVideo] = useState<string>()
     const [commentUrl, setCommentUrl] = useState(defaultUrl)
+    const [voices, setVoices] = useState<string[]>([])
     const [currentVoice, setCurrentVoice] = useState(voices[0])
     const [statusMessage, setStatusMessage] = useState<string>()
 
@@ -28,6 +28,7 @@ export default function App(): JSX.Element {
         if (!ffmpeg.isLoaded()) {
             await ffmpeg.load()
         }
+        setVoices(await narrator.getVoices())
         setReady(true)
     }
 
