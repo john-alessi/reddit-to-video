@@ -61,48 +61,84 @@ export class UberduckNarrator implements INarrator {
     }
 
     async getVoices() {
-        let response = await window.fetch(`https://api.uberduck.ai/voices?mode=tts-all`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Basic ${window.btoa(`${this.apiKey}:${this.apiSecret}`)}`
+        let response = await window.fetch(
+            `https://api.uberduck.ai/voices?mode=tts-all`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Basic ${window.btoa(
+                        `${this.apiKey}:${this.apiSecret}`,
+                    )}`,
+                },
             },
-        })
+        )
         let json = await response.json()
         return json.map((v: any) => v.name)
     }
 
     async narrate(comment: Comment, voice: string): Promise<Audio> {
         let text = (comment.title ?? '') + '  ' + (comment.body ?? '')
-        let response = await window.fetch('https://api.uberduck.ai/speak', {
-            method: 'POST',
-            body: `{"speech": "${text}","voice": "${voice}"}`,
-            headers: {
-                'Authorization': `Basic ${window.btoa(`${this.apiKey}:${this.apiSecret}`)}`
-            },
-        })
-        let audioId = (await response.json()).uuid
+        let audioId = await this.getAudioId(text, voice)
         let audioUrl = await this.getAudioUrl(audioId)
         let duration = await getAudioDuration(audioUrl)
-        return {url: audioUrl, duration: duration}
+        return { url: audioUrl, duration: duration }
+    }
+
+    getAudioId(text: string, voice: string): Promise<string> {
+        let formattedText = text
+            .replaceAll('"', "'")
+            .replaceAll('&gt;', '')
+            .replaceAll('\n', ' ')
+
+        return new Promise<string>((resolve, reject) => {
+            const tryGetId = async (timeout: number) => {
+                let response = await window.fetch(
+                    'https://api.uberduck.ai/speak',
+                    {
+                        method: 'POST',
+                        body: `{"speech": "${formattedText}","voice": "${voice}"}`,
+                        headers: {
+                            Authorization: `Basic ${window.btoa(
+                                `${this.apiKey}:${this.apiSecret}`,
+                            )}`,
+                        },
+                    },
+                )
+
+                if (response.status == 200) {
+                    resolve((await response.json()).uuid)
+                } else if (response.status == 400) {
+                    setTimeout(tryGetId, timeout, timeout * 2)
+                } else {
+                    reject(response.statusText)
+                }
+            }
+
+            tryGetId(1000)
+        })
     }
 
     getAudioUrl(audioId: string): Promise<string> {
-        return new Promise<string>((resolve) => {
-
+        return new Promise<string>((resolve, reject) => {
             const tryGetStatus = async () => {
-                let jobStatusResponse = await window.fetch(`https://api.uberduck.ai/speak-status?uuid=${audioId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Basic ${window.btoa(`${this.apiKey}:${this.apiSecret}`)}`
+                let jobStatusResponse = await window.fetch(
+                    `https://api.uberduck.ai/speak-status?uuid=${audioId}`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            Authorization: `Basic ${window.btoa(
+                                `${this.apiKey}:${this.apiSecret}`,
+                            )}`,
+                        },
                     },
-                })
+                )
 
-                let jobStatus = (await jobStatusResponse.json()) as UberduckJobStatus
+                let jobStatus =
+                    (await jobStatusResponse.json()) as UberduckJobStatus
 
                 if (jobStatus.finished_at != null && jobStatus.path != null) {
                     resolve(jobStatus.path)
-                }
-                else {
+                } else {
                     setTimeout(tryGetStatus, 1000)
                 }
             }

@@ -42,7 +42,6 @@ export async function getThreadData(url: string): Promise<Comment[]> {
 }
 
 function splitComment(comment: Comment): Comment[] {
-
     if (comment.body == undefined || comment.body.length == 0) {
         return [comment]
     }
@@ -61,7 +60,7 @@ function splitComment(comment: Comment): Comment[] {
 
     var sentences: Comment[] =
         remainder.body
-            ?.split(/(?<=[\.\?!])/g)
+            ?.split(/[\.\?!](?:.(?![\.\?!]))\s*/s)
             .map((s) => ({ type: 'reply', body: s })) ?? []
 
     sentences[0].user = comment.user
