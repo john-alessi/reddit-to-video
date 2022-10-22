@@ -160,14 +160,18 @@ export default function App(): JSX.Element {
             <h1>reddit to tiktok converter</h1>
             <div>
                 <label>tts voice </label>
-                <select
+                <input
+                    list='voices'
+                    spellCheck='false'
                     onChange={(e) => {
                         setCurrentVoice(e.target.value)
-                    }}>
+                    }}
+                />
+                <datalist id='voices'>
                     {voices.map((v) => (
                         <option value={v}>{v}</option>
                     ))}
-                </select>
+                </datalist>
             </div>
             <div>
                 <input
