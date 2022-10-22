@@ -17,6 +17,7 @@ export async function generateImage(comment: Comment): Promise<string> {
     } else if (comment.type == 'text') {
         element = (
             <div id='imagediv'>
+                <p>/r/{comment.subreddit}</p>
                 <p>{comment.user}</p>
                 <h2>{comment.title}</h2>
                 <h3>{comment.body}</h3>
@@ -25,9 +26,10 @@ export async function generateImage(comment: Comment): Promise<string> {
     } else if (comment.type == 'image') {
         element = (
             <div id='imagediv'>
+                <p>/r/{comment.subreddit}</p>
                 <p>{comment.user}</p>
                 <h3>{comment.title}</h3>
-                <img src={comment.imgUrl} crossOrigin='anonymous' />
+                <img src={comment.imgUrl} crossOrigin='anonymous' width={380}/>
             </div>
         )
     } else {
@@ -39,11 +41,11 @@ export async function generateImage(comment: Comment): Promise<string> {
     div.innerHTML = str
     document.body.appendChild(div)
     const canvas = await html2canvas(div, {
-        width: 500,
-        height: 500,
+        width: 400,
+        height: 600,
         backgroundColor: null,
-        windowWidth: 500,
-        windowHeight: 500,
+        windowWidth: 400,
+        windowHeight: 600,
         useCORS: true,
         proxy: comment.imgUrl,
     })

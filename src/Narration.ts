@@ -11,7 +11,8 @@ import config from 'mespeak/src/mespeak_config.json'
 import { Comment } from './ThreadData'
 
 export interface INarrator {
-    narrate: (comment: Comment) => Promise<Audio>
+    narrate: (comment: Comment, voice: string) => Promise<Audio>
+    getVoices: () => Promise<string[]>
 }
 
 export interface Audio {
@@ -30,12 +31,120 @@ export class MeSpeakNarrator implements INarrator {
         }
     }
 
-    async narrate(comment: Comment): Promise<Audio> {
+    async getVoices() {
+        return ['en-us']
+    }
+
+    async narrate(comment: Comment, voice: string): Promise<Audio> {
         let url = speak((comment.title ?? '') + '  ' + (comment.body ?? ''), {
             rawdata: 'mime',
         })
         let duration = await getAudioDuration(url)
         return { url: url, duration: duration }
+    }
+}
+
+interface UberduckJobStatus {
+    started_at: string | null
+    failed_at: string | null
+    finished_at: string | null
+    path: string | null
+}
+
+export class UberduckNarrator implements INarrator {
+    private apiKey: string
+    private apiSecret: string
+
+    constructor(apiKey: string, apiSecret: string) {
+        this.apiKey = apiKey
+        this.apiSecret = apiSecret
+    }
+
+    async getVoices() {
+        let response = await window.fetch(
+            `https://api.uberduck.ai/voices?mode=tts-all`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Basic ${window.btoa(
+                        `${this.apiKey}:${this.apiSecret}`,
+                    )}`,
+                },
+            },
+        )
+        let json = await response.json()
+        return json.map((v: any) => v.name)
+    }
+
+    async narrate(comment: Comment, voice: string): Promise<Audio> {
+        let text = (comment.title ?? '') + '  ' + (comment.body ?? '')
+        let audioId = await this.getAudioId(text, voice)
+        let audioUrl = await this.getAudioUrl(audioId)
+        let duration = await getAudioDuration(audioUrl)
+        return { url: audioUrl, duration: duration }
+    }
+
+    getAudioId(text: string, voice: string): Promise<string> {
+        let formattedText = text
+            .replaceAll('"', "'")
+            .replaceAll('&gt;', '')
+            .replaceAll('\n', ' ')
+
+        return new Promise<string>((resolve, reject) => {
+            const tryGetId = async (timeout: number) => {
+                let response = await window.fetch(
+                    'https://api.uberduck.ai/speak',
+                    {
+                        method: 'POST',
+                        body: `{"speech": "${formattedText}","voice": "${voice}"}`,
+                        headers: {
+                            Authorization: `Basic ${window.btoa(
+                                `${this.apiKey}:${this.apiSecret}`,
+                            )}`,
+                        },
+                    },
+                )
+
+                if (response.status == 200) {
+                    resolve((await response.json()).uuid)
+                } else if (response.status == 400) {
+                    setTimeout(tryGetId, timeout, timeout * 2)
+                } else {
+                    reject(response.statusText)
+                }
+            }
+
+            tryGetId(1000)
+        })
+    }
+
+    getAudioUrl(audioId: string): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const tryGetStatus = async () => {
+                let jobStatusResponse = await window.fetch(
+                    `https://api.uberduck.ai/speak-status?uuid=${audioId}`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            Authorization: `Basic ${window.btoa(
+                                `${this.apiKey}:${this.apiSecret}`,
+                            )}`,
+                        },
+                    },
+                )
+
+                let jobStatus =
+                    (await jobStatusResponse.json()) as UberduckJobStatus
+
+                if (jobStatus.finished_at != null && jobStatus.path != null) {
+                    resolve(jobStatus.path)
+                } else {
+                    setTimeout(tryGetStatus, 1000)
+                }
+            }
+
+            tryGetStatus()
+        })
     }
 }
 
@@ -45,6 +154,7 @@ function getAudioDuration(audioUrl: string): Promise<number> {
         audioElement.addEventListener('loadedmetadata', (e) => {
             resolve((e.target as HTMLAudioElement).duration)
         })
+        audioElement.crossOrigin = 'anonymous'
         audioElement.src = audioUrl
     })
 }

@@ -31,6 +31,7 @@ export async function getThreadData(url: string): Promise<Comment[]> {
         body: op.selftext,
         user: op.author,
         imgUrl: imgUrl,
+        subreddit: op.subreddit,
     }
 
     var thread: Comment[] = splitComment(firstComment)
@@ -41,6 +42,10 @@ export async function getThreadData(url: string): Promise<Comment[]> {
 }
 
 function splitComment(comment: Comment): Comment[] {
+    if (comment.body == undefined || comment.body.length == 0) {
+        return [comment]
+    }
+
     var results: Comment[] = []
     var remainder: Comment = comment
     if (comment.type != 'reply') {
@@ -55,7 +60,7 @@ function splitComment(comment: Comment): Comment[] {
 
     var sentences: Comment[] =
         remainder.body
-            ?.split(/(?<=[\.\?!])/g)
+            ?.split(/[\.\?!](?:.(?![\.\?!]))\s*/s)
             .map((s) => ({ type: 'reply', body: s })) ?? []
 
     sentences[0].user = comment.user
@@ -122,4 +127,5 @@ export interface Comment {
     title?: string
     imgUrl?: string
     type: PostType
+    subreddit?: string
 }
