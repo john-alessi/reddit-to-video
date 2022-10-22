@@ -14,6 +14,8 @@ const ffmpeg = createFFmpeg({ log: true })
 const narrator = new MeSpeakNarrator()
 const voices = await narrator.getVoices()
 
+const BG_VID_PATH = 'output.mp4'
+
 export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
@@ -33,7 +35,7 @@ export default function App(): JSX.Element {
         setStatusMessage('downloading comment thread...')
         var thread = await getThreadData(commentUrl)
         var timestamps: number[] = Array(thread.length + 1).fill(0)
-        var command: string[] = [
+        var audioCommand: string[] = [
             '-stream_loop',
             '-1',
             '-i',
@@ -55,8 +57,6 @@ export default function App(): JSX.Element {
                 imagePath,
                 await fetchFile(await generateImage(thread[i])),
             )
-
-            command = command.concat('-i', imagePath)
         }
 
         for (let i = 0; i < thread.length; i++) {
@@ -68,7 +68,7 @@ export default function App(): JSX.Element {
 
             timestamps[i + 1] = timestamps[i] + audio.duration
 
-            command = command.concat('-i', audioPath)
+            audioCommand = audioCommand.concat('-i', audioPath)
         }
 
         ffmpeg.setLogger((logParams: { type: string; message: string }) => {
@@ -95,23 +95,54 @@ export default function App(): JSX.Element {
             }
         })
 
-        command = command.concat(
+        audioCommand = audioCommand.concat(
             '-filter_complex',
-            getFilter(thread.length, timestamps),
+            getAudiofilter(thread.length),
             '-map',
-            '[v' + thread.length + ']',
+            '[resized]',
             '-map',
             '[concatAudio]',
             '-preset',
             'ultrafast',
             '-t',
             Math.ceil(timestamps[thread.length]).toString(),
-            'output.mp4',
+            BG_VID_PATH,
         )
 
-        await ffmpeg.run.apply(ffmpeg, command)
+        await ffmpeg.run.apply(ffmpeg, audioCommand)
 
-        const data = ffmpeg.FS('readFile', 'output.mp4')
+        let batch = 0
+        while (batch * 10 < thread.length) {
+            let start = batch * 10
+            let numComments = Math.min(10, thread.length - start)
+            let command = getOverlayCommand(
+                start,
+                numComments,
+                timestamps,
+                'out_' + batch + '.mp4',
+            )
+            await ffmpeg.run.apply(ffmpeg, command)
+            batch++
+        }
+
+        let inputs: string[] = []
+        for (let i = 0; i < batch; i++) {
+            inputs = inputs.concat('file out_' + i + '.mp4')
+        }
+        await ffmpeg.FS('writeFile', 'concatList.txt', inputs.join('\n'))
+        await ffmpeg.run(
+            '-f',
+            'concat',
+            '-safe',
+            '0',
+            '-i',
+            'concatList.txt',
+            '-c',
+            'copy',
+            'final_output.mp4',
+        )
+
+        const data = ffmpeg.FS('readFile', 'final_output.mp4')
         const url = URL.createObjectURL(
             new Blob([data.buffer], { type: 'video/mp4' }),
         )
@@ -161,37 +192,15 @@ export default function App(): JSX.Element {
     )
 }
 
-function getFilter(numComments: number, timestamps: number[]): string {
+function getAudiofilter(numComments: number): string {
     var filters: string[] = [
         '[0:v]crop=in_h*9/16:in_h[cropped]',
         '[cropped]scale=720:1280[resized]',
-        "[resized][1]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t," +
-            timestamps[0] +
-            ',' +
-            timestamps[1] +
-            ")'[v1]",
     ]
-
-    for (let i = 1; i < numComments; i++) {
-        filters = filters.concat(
-            '[v' +
-                i +
-                ']' +
-                '[' +
-                (i + 1) +
-                "]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t," +
-                timestamps[i] +
-                ',' +
-                timestamps[i + 1] +
-                ")'[v" +
-                (i + 1) +
-                ']',
-        )
-    }
 
     var audioFilter: string = ''
     for (let i = 0; i < numComments; i++) {
-        audioFilter = audioFilter.concat('[' + (i + numComments + 1) + ':a]')
+        audioFilter = audioFilter.concat('[' + (i + 1) + ':a]')
     }
     audioFilter = audioFilter.concat(
         'concat=n=' + numComments + ':a=1:v=0[concatAudio]',
@@ -199,4 +208,51 @@ function getFilter(numComments: number, timestamps: number[]): string {
     filters = filters.concat(audioFilter)
 
     return filters.join(';')
+}
+
+function getOverlayCommand(
+    start: number,
+    numComments: number,
+    timestamps: number[],
+    outputName: string,
+): string[] {
+    let command: string[] = [
+        '-ss',
+        timestamps[start].toString(),
+        '-to',
+        timestamps[start + numComments].toString(),
+        '-i',
+        BG_VID_PATH,
+    ]
+    let filters: string[] = []
+    for (let i = 0; i < numComments; i++) {
+        command = command.concat('-i', 'img_' + (start + i) + '.png')
+        filters = filters.concat(
+            '[' +
+                (i == 0 ? '' : 'v') +
+                i +
+                ']' +
+                '[' +
+                (i + 1) +
+                "]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t," +
+                (timestamps[start + i] - timestamps[start]) +
+                ',' +
+                (timestamps[start + i + 1] - timestamps[start]) +
+                ")'[v" +
+                (i + 1) +
+                ']',
+        )
+    }
+    command = command.concat(
+        '-filter_complex',
+        filters.join(';'),
+        '-map',
+        '[v' + numComments + ']',
+        '-map',
+        '0:a',
+        '-preset',
+        'ultrafast',
+        outputName,
+    )
+    return command
 }
