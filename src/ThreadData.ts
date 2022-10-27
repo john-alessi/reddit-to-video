@@ -1,3 +1,6 @@
+import winkNlp from 'wink-nlp'
+import model from 'wink-eng-lite-web-model'
+
 type PostType = 'image' | 'text' | 'reply'
 
 export async function getThreadData(url: string): Promise<Comment[]> {
@@ -58,9 +61,11 @@ function splitComment(comment: Comment): Comment[] {
         remainder = { user: comment.user, body: comment.body, type: 'reply' }
     }
 
+    const doc = winkNlp(model).readDoc(remainder.body as string)
     var sentences: Comment[] =
-        remainder.body
-            ?.split(/[\.\?!](?:.(?![\.\?!]))\s*/s)
+        doc
+            .sentences()
+            .out()
             .map((s) => ({ type: 'reply', body: s })) ?? []
 
     sentences[0].user = comment.user
