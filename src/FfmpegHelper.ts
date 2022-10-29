@@ -7,7 +7,7 @@ export interface SequentialImageOverlay {
 }
 
 export class FfmpegHelper {
-    public instance: FFmpeg
+    private instance: FFmpeg
     private logProgress = (description: string, progress: number) => {}
 
     constructor() {
@@ -29,6 +29,10 @@ export class FfmpegHelper {
 
     writeFile(path: string, data: string | Uint8Array): void {
         return this.instance.FS('writeFile', path, data)
+    }
+
+    async fetchAndWriteFile(path: string, data: File): Promise<void> {
+        return this.writeFile(path, await fetchFile(data))
     }
 
     async concatAudioOverInput(
@@ -72,11 +76,7 @@ export class FfmpegHelper {
             timestamps[i + 1] = timestamps[i] + images[i].duration
             let imagePath = 'img_' + i + '.png'
 
-            this.instance.FS(
-                'writeFile',
-                imagePath,
-                await fetchFile(images[i].imageUrl),
-            )
+            this.writeFile(imagePath, await fetchFile(images[i].imageUrl))
         }
 
         let batch = 0
@@ -104,7 +104,7 @@ export class FfmpegHelper {
         for (let i = 0; i < batch; i++) {
             concatInputs = concatInputs.concat('file out_' + i + '.mp4')
         }
-        this.instance.FS('writeFile', 'concatList.txt', concatInputs.join('\n'))
+        this.writeFile('concatList.txt', concatInputs.join('\n'))
         await this.instance.run(
             '-f',
             'concat',

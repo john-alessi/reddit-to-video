@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg'
 import { FfmpegHelper, SequentialImageOverlay } from './FfmpegHelper'
 
 import { generateImage } from './ImageGeneration'
@@ -44,7 +43,7 @@ export default function App(): JSX.Element {
         let imageOverlays: SequentialImageOverlay[] = []
         let audioClips: Audio[] = []
 
-        ffmpeg.writeFile('background_video.mp4', await fetchFile(video as File))
+        await ffmpeg.fetchAndWriteFile('background_video.mp4', video as File)
 
         for (let i = 0; i < thread.length; i++) {
             setStatusMessage(`generating audio ${i + 1}/${thread.length}`)
@@ -85,7 +84,7 @@ export default function App(): JSX.Element {
         load()
     }, [])
 
-    return ready ? (
+    return (
         <div className='App'>
             <h1>reddit to tiktok converter</h1>
             <div>
@@ -117,11 +116,11 @@ export default function App(): JSX.Element {
                     onChange={(e) => setCommentUrl(e.target.value ?? '')}
                 />
             </div>
-            <button onClick={generateVideo}>Generate Video</button>
+            <button onClick={generateVideo} disabled={!ready || !video}>
+                Generate Video
+            </button>
             <p>{statusMessage}</p>
             {outputVideo && <video controls width='250' src={outputVideo} />}
         </div>
-    ) : (
-        <p>loading...</p>
     )
 }
