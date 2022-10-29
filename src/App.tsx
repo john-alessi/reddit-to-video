@@ -4,7 +4,12 @@ import { FfmpegHelper, SequentialImageOverlay } from './FfmpegHelper'
 
 import { generateImage } from './ImageGeneration'
 import { getThreadData } from './ThreadData'
-import { INarrator, MeSpeakNarrator, UberduckNarrator } from './Narration'
+import {
+    Audio,
+    INarrator,
+    MeSpeakNarrator,
+    UberduckNarrator,
+} from './Narration'
 
 import './App.css'
 
@@ -35,89 +40,31 @@ export default function App(): JSX.Element {
 
     const generateVideo = async () => {
         setStatusMessage('downloading comment thread...')
-        var thread = await getThreadData(commentUrl)
-        var timestamps: number[] = Array(thread.length + 1).fill(0)
-        var imageOverlays: SequentialImageOverlay[] = []
-        var durations: number[] = []
-        var audioCommand: string[] = [
-            '-stream_loop',
-            '-1',
-            '-i',
-            'background_video.mp4',
-        ]
+        let thread = await getThreadData(commentUrl)
+        let imageOverlays: SequentialImageOverlay[] = []
+        let audioClips: Audio[] = []
 
-        ffmpeg.instance.FS(
-            'writeFile',
-            'background_video.mp4',
-            await fetchFile(video as File),
-        )
+        ffmpeg.writeFile('background_video.mp4', await fetchFile(video as File))
 
         for (let i = 0; i < thread.length; i++) {
             setStatusMessage(`generating audio ${i + 1}/${thread.length}`)
-            let audioPath = 'audio_' + i + '.wav'
-
             let audio = await narrator.narrate(thread[i], currentVoice)
-            ffmpeg.instance.FS(
-                'writeFile',
-                audioPath,
-                await fetchFile(audio.url),
-            )
-
-            timestamps[i + 1] = timestamps[i] + audio.duration
-            durations = durations.concat(audio.duration)
-
-            audioCommand = audioCommand.concat('-i', audioPath)
+            audioClips = audioClips.concat(audio)
         }
 
         for (let i = 0; i < thread.length; i++) {
             setStatusMessage(`generating image ${i + 1}/${thread.length}`)
             imageOverlays = imageOverlays.concat({
                 imageUrl: await generateImage(thread[i]),
-                duration: durations[i],
+                duration: audioClips[i].duration,
             })
         }
 
-        ffmpeg.instance.setLogger(
-            (logParams: { type: string; message: string }) => {
-                if (
-                    logParams.type == 'fferr' &&
-                    /time=(\d\d:\d\d:\d\d\.\d\d)/.test(logParams.message)
-                ) {
-                    let match = logParams.message.match(
-                        /time=(\d\d:\d\d:\d\d\.\d\d)/,
-                    )
-                    if (match != null && match[1] != null) {
-                        let hms = match[1].split(':')
-                        let seconds =
-                            60 * 60 * parseInt(hms[0], 10) +
-                            60 * parseInt(hms[1], 10) +
-                            parseFloat(hms[2])
-                        setStatusMessage(
-                            `encoding video (${(
-                                (seconds / timestamps[thread.length]) *
-                                100
-                            ).toFixed(2)}%)`,
-                        )
-                    }
-                }
-            },
-        )
-
-        audioCommand = audioCommand.concat(
-            '-filter_complex',
-            getAudiofilter(thread.length),
-            '-map',
-            '[resized]',
-            '-map',
-            '[concatAudio]',
-            '-preset',
-            'ultrafast',
-            '-t',
-            Math.ceil(timestamps[thread.length]).toString(),
+        await ffmpeg.concatAudioOverInput(
+            audioClips,
+            'background_video.mp4',
             BG_VID_PATH,
         )
-
-        await ffmpeg.instance.run.apply(ffmpeg, audioCommand)
 
         await ffmpeg.renderSequentialImageOverlay(
             BG_VID_PATH,
@@ -125,7 +72,7 @@ export default function App(): JSX.Element {
             imageOverlays,
         )
 
-        const data = ffmpeg.instance.FS('readFile', 'final_output.mp4')
+        const data = ffmpeg.readFile('final_output.mp4')
         const url = URL.createObjectURL(
             new Blob([data.buffer], { type: 'video/mp4' }),
         )
@@ -177,22 +124,4 @@ export default function App(): JSX.Element {
     ) : (
         <p>loading...</p>
     )
-}
-
-function getAudiofilter(numComments: number): string {
-    var filters: string[] = [
-        '[0:v]crop=in_h*9/16:in_h[cropped]',
-        '[cropped]scale=720:1280[resized]',
-    ]
-
-    var audioFilter: string = ''
-    for (let i = 0; i < numComments; i++) {
-        audioFilter = audioFilter.concat('[' + (i + 1) + ':a]')
-    }
-    audioFilter = audioFilter.concat(
-        'concat=n=' + numComments + ':a=1:v=0[concatAudio]',
-    )
-    filters = filters.concat(audioFilter)
-
-    return filters.join(';')
 }

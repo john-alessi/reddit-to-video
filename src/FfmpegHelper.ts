@@ -1,4 +1,5 @@
 import { createFFmpeg, fetchFile, FFmpeg } from '@ffmpeg/ffmpeg'
+import { Audio } from './Narration'
 
 export interface SequentialImageOverlay {
     imageUrl: string
@@ -24,6 +25,41 @@ export class FfmpegHelper {
 
     readFile(path: string): Uint8Array {
         return this.instance.FS('readFile', path)
+    }
+
+    writeFile(path: string, data: string | Uint8Array): void {
+        return this.instance.FS('writeFile', path, data)
+    }
+
+    async concatAudioOverInput(
+        audioClips: Audio[],
+        inputVideo: string,
+        outputVideo: string,
+    ) {
+        let audioCommand: string[] = ['-stream_loop', '-1', '-i', inputVideo]
+        let totalDuration = audioClips
+            .map((a) => a.duration)
+            .reduce((a, b) => a + b)
+        for (let i = 0; i < audioClips.length; i++) {
+            let audioPath = 'audio_' + i + '.wav'
+            audioCommand = audioCommand.concat('-i', audioPath)
+            this.writeFile(audioPath, await fetchFile(audioClips[i].url))
+        }
+        audioCommand = audioCommand.concat(
+            '-filter_complex',
+            getAudiofilter(audioClips.length),
+            '-map',
+            '[resized]',
+            '-map',
+            '[concatAudio]',
+            '-preset',
+            'ultrafast',
+            '-t',
+            Math.ceil(totalDuration).toString(),
+            outputVideo,
+        )
+        this.setLogger('adding audio', totalDuration)
+        await this.instance.run.apply(this.instance, audioCommand)
     }
 
     async renderSequentialImageOverlay(
@@ -55,14 +91,14 @@ export class FfmpegHelper {
                 'out_' + batch + '.mp4',
             )
             this.setLogger(
-                `overlaying batch ${batch + 1}/${Math.ceil(
-                    images.length / 10,
-                )}`,
+                `overlaying clip ${batch + 1}/${Math.ceil(images.length / 10)}`,
                 timestamps[start + numComments] - timestamps[start],
             )
             await this.instance.run.apply(this.instance, command)
             batch++
         }
+
+        this.setLogger('stitching clips', timestamps[timestamps.length - 1])
 
         let concatInputs: string[] = []
         for (let i = 0; i < batch; i++) {
@@ -104,6 +140,24 @@ export class FfmpegHelper {
             },
         )
     }
+}
+
+function getAudiofilter(numComments: number): string {
+    var filters: string[] = [
+        '[0:v]crop=in_h*9/16:in_h[cropped]',
+        '[cropped]scale=720:1280[resized]',
+    ]
+
+    var audioFilter: string = ''
+    for (let i = 0; i < numComments; i++) {
+        audioFilter = audioFilter.concat('[' + (i + 1) + ':a]')
+    }
+    audioFilter = audioFilter.concat(
+        'concat=n=' + numComments + ':a=1:v=0[concatAudio]',
+    )
+    filters = filters.concat(audioFilter)
+
+    return filters.join(';')
 }
 
 function getOverlayCommand(
