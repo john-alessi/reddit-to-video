@@ -3,12 +3,7 @@ import { FfmpegHelper, SequentialImageOverlay } from './FfmpegHelper'
 
 import { generateImage } from './ImageGeneration'
 import { getThreadData } from './ThreadData'
-import {
-    Audio,
-    INarrator,
-    MeSpeakNarrator,
-    UberduckNarrator,
-} from './Narration'
+import { Audio, INarrator, MeSpeakNarrator } from './Narration'
 
 import './App.css'
 
@@ -16,7 +11,7 @@ const defaultUrl =
     'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
 const ffmpeg = new FfmpegHelper()
-const narrator = new MeSpeakNarrator()
+const narrator: INarrator = new MeSpeakNarrator()
 
 const BG_VID_PATH = 'output.mp4'
 
