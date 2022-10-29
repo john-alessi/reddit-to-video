@@ -54,7 +54,7 @@ export async function generateImage(comment: Comment): Promise<string> {
         }
 
         if (comment.body) {
-            let body = document.createElement('p')
+            let body = document.createElement('h3')
             let bodyText = document.createTextNode(comment.body)
             body.appendChild(bodyText)
             div.appendChild(body)
