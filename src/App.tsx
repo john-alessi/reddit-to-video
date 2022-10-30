@@ -19,6 +19,7 @@ export default function App(): JSX.Element {
     const [ready, setReady] = useState(false)
     const [video, setVideo] = useState<File | null>()
     const [outputVideo, setOutputVideo] = useState<string>()
+    const [outputVideoFile, setOutputVideoFile] = useState<File | null>()
     const [commentUrl, setCommentUrl] = useState(defaultUrl)
     const [voices, setVoices] = useState<string[]>([])
     const [currentVoice, setCurrentVoice] = useState(voices[0])
@@ -67,10 +68,10 @@ export default function App(): JSX.Element {
         )
 
         const data = ffmpeg.readFile('final_output.mp4')
-        const url = URL.createObjectURL(
-            new Blob([data.buffer], { type: 'video/mp4' }),
-        )
+        const blob = new Blob([data.buffer], { type: 'video/mp4' })
+        const url = URL.createObjectURL(blob)
         setOutputVideo(url)
+        setOutputVideoFile(new File([blob], 'output.mp4', { type: blob.type }))
 
         setStatusMessage('')
     }
@@ -122,11 +123,29 @@ export default function App(): JSX.Element {
             <p>{statusMessage}</p>
             {outputVideo && (
                 <div>
-                    <a href={outputVideo} download={true}>
-                        <button type='button'>Save</button>
-                    </a>
+                    {navigator.canShare() ? (
+                        <a href={outputVideo} download={true}>
+                            <button type='button'>Save</button>
+                        </a>
+                    ) : (
+                        <button
+                            type='button'
+                            onClick={() =>
+                                navigator.share({
+                                    files: [outputVideoFile as File],
+                                })
+                            }>
+                            Share
+                        </button>
+                    )}
+
                     <br />
-                    <video controls width='250' src={outputVideo} />
+                    <video
+                        id='outputVideo'
+                        controls
+                        width='250'
+                        src={outputVideo}
+                    />
                 </div>
             )}
         </div>
