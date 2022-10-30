@@ -82,7 +82,7 @@ export default function App(): JSX.Element {
     return (
         <div className='App'>
             <h1>reddit to tiktok converter</h1>
-            <div>
+            <div hidden={true}>
                 <label>tts voice </label>
                 <input
                     list='voices'
@@ -98,8 +98,10 @@ export default function App(): JSX.Element {
                 </datalist>
             </div>
             <div>
+                <label>background video </label>
                 <input
                     type='file'
+                    accept='video/*'
                     onChange={(e) => setVideo(e.target.files?.item(0))}
                 />
             </div>
@@ -111,11 +113,22 @@ export default function App(): JSX.Element {
                     onChange={(e) => setCommentUrl(e.target.value ?? '')}
                 />
             </div>
-            <button onClick={generateVideo} disabled={!ready || !video}>
+            <button
+                type='button'
+                onClick={generateVideo}
+                disabled={!ready || !video}>
                 Generate Video
             </button>
             <p>{statusMessage}</p>
-            {outputVideo && <video controls width='250' src={outputVideo} />}
+            {outputVideo && (
+                <div>
+                    <a href={outputVideo} download={true}>
+                        <button type='button'>Save</button>
+                    </a>
+                    <br />
+                    <video controls width='250' src={outputVideo} />
+                </div>
+            )}
         </div>
     )
 }
