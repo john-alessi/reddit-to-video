@@ -19,6 +19,7 @@ export async function generateImage(comment: Comment): Promise<string> {
             const canvas = await html2canvas(div, {
                 width: 400,
                 height: 600,
+                scale: 1,
                 backgroundColor: null,
                 windowWidth: 400,
                 windowHeight: 600,
