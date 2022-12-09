@@ -52,11 +52,14 @@ interface UberduckJobStatus {
 }
 
 export class UberduckNarrator implements INarrator {
-    private apiKey: string
-    private apiSecret: string
+    private apiKey: string = ''
+    private apiSecret: string = ''
 
-    constructor(apiKey: string, apiSecret: string) {
+    setApiKey(apiKey: string) {
         this.apiKey = apiKey
+    }
+
+    setApiSecret(apiSecret: string) {
         this.apiSecret = apiSecret
     }
 
