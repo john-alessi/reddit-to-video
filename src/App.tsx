@@ -3,15 +3,23 @@ import { FfmpegHelper, SequentialImageOverlay } from './FfmpegHelper'
 
 import { generateImage } from './ImageGeneration'
 import { getThreadData } from './ThreadData'
-import { Audio, INarrator, MeSpeakNarrator } from './Narration'
+import {
+    Audio,
+    INarrator,
+    MeSpeakNarrator,
+    UberduckNarrator,
+} from './Narration'
 
 import './App.css'
 
 const defaultUrl =
     'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
+const oidConfig = 'https://oauth.uberduck.ai/.well-known/openid-configuration'
+
 const ffmpeg = new FfmpegHelper()
-const narrator: INarrator = new MeSpeakNarrator()
+const meSpeakNarrator = new MeSpeakNarrator()
+const uberduckNarrator = new UberduckNarrator()
 
 const BG_VID_PATH = 'output.mp4'
 
@@ -24,6 +32,7 @@ export default function App(): JSX.Element {
     const [voices, setVoices] = useState<string[]>([])
     const [currentVoice, setCurrentVoice] = useState(voices[0])
     const [statusMessage, setStatusMessage] = useState<string>()
+    const [narrator, setNarrator] = useState<INarrator>(meSpeakNarrator)
 
     const load = async () => {
         await ffmpeg.init((description, progress) => {
@@ -83,7 +92,51 @@ export default function App(): JSX.Element {
     return (
         <div className='App'>
             <h1>reddit to tiktok converter</h1>
-            <div hidden={true}>
+            <label>
+                <input
+                    type={'radio'}
+                    name={'tts'}
+                    value={'mespeak'}
+                    onChange={async () => {
+                        setNarrator(meSpeakNarrator)
+                        setVoices(await meSpeakNarrator.getVoices())
+                    }}
+                    checked={narrator === meSpeakNarrator}
+                />
+                MeSpeak
+            </label>
+            <label>
+                <input
+                    type={'radio'}
+                    name={'tts'}
+                    value={'uberduck'}
+                    onChange={async () => {
+                        setNarrator(uberduckNarrator)
+                        setVoices(await uberduckNarrator.getVoices())
+                    }}
+                    checked={narrator === uberduckNarrator}
+                />
+                UberDuck
+            </label>
+            <div hidden={narrator !== uberduckNarrator}>
+                <div>
+                    <label>api key </label>
+                    <input
+                        type='password'
+                        onChange={(e) =>
+                            uberduckNarrator.setApiKey(e.target.value)
+                        }></input>
+                </div>
+                <div>
+                    <label>api secret </label>
+                    <input
+                        type='password'
+                        onChange={(e) =>
+                            uberduckNarrator.setApiSecret(e.target.value)
+                        }></input>
+                </div>
+            </div>
+            <div hidden={false}>
                 <label>tts voice </label>
                 <input
                     list='voices'
@@ -123,7 +176,7 @@ export default function App(): JSX.Element {
             <p>{statusMessage}</p>
             {outputVideo && (
                 <div>
-                    {navigator.canShare() ? (
+                    {navigator['canShare'] && navigator.canShare() ? (
                         <a href={outputVideo} download={true}>
                             <button type='button'>Save</button>
                         </a>
