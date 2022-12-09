@@ -110,13 +110,14 @@ export default function App(): JSX.Element {
                     type={'radio'}
                     name={'tts'}
                     value={'uberduck'}
+                    disabled={true}
                     onChange={async () => {
                         setNarrator(uberduckNarrator)
                         setVoices(await uberduckNarrator.getVoices())
                     }}
                     checked={narrator === uberduckNarrator}
                 />
-                UberDuck
+                UberDuck (work in progress)
             </label>
             <div hidden={narrator !== uberduckNarrator}>
                 <div>
