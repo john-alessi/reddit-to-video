@@ -118,7 +118,7 @@ export class UberduckNarrator implements INarrator {
         return new Promise<string>((resolve, reject) => {
             const tryGetStatus = async () => {
                 let jobStatusResponse = await window.fetch(
-                    `https://api.uberduck.ai/speak-status?uuid=${audioId}`,
+                    `https://corsproxy.azure-api.net/speak-status?uuid=${audioId}`,
                     {
                         method: 'GET',
                         headers: {
