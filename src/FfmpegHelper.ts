@@ -43,12 +43,21 @@ export class FfmpegHelper {
         let totalDuration = 0
         let loggedBgVideoDuration = false
         let audioCommand: string[] = ['-stream_loop', '-1', '-i', inputVideo]
+
         for (let i = 0; i < audioClips.length; i++) {
             let audioPath = 'audio_' + i + '.wav'
             await this.fetchAndWriteFile(audioPath, audioClips[i])
             audioCommand = audioCommand.concat('-i', audioPath)
         }
+
+        var videoResizeFilter = [
+            '[0:v]crop=in_h*9/16:in_h[cropped]',
+            '[cropped]scale=720:1280[resized]',
+        ].join(';')
+
         audioCommand = audioCommand.concat(
+            '-filter_complex',
+            videoResizeFilter,
             '-filter_complex',
             getAudiofilter(audioClips.length),
             '-map',
@@ -57,10 +66,10 @@ export class FfmpegHelper {
             '[concatAudio]',
             '-preset',
             'ultrafast',
-            '-t',
-            '70',
+            '-shortest',
             outputVideo,
         )
+
         this.setLogger(
             (progress: number) =>
                 this.logProgress('stitching audio', progress / totalDuration),
@@ -73,6 +82,7 @@ export class FfmpegHelper {
                 }
             },
         )
+
         await this.instance.run.apply(this.instance, audioCommand)
         return audioDurations
     }
@@ -184,21 +194,17 @@ export class FfmpegHelper {
 }
 
 function getAudiofilter(numComments: number): string {
-    var filters: string[] = [
-        '[0:v]crop=in_h*9/16:in_h[cropped]',
-        '[cropped]scale=720:1280[resized]',
-    ]
-
     var audioFilter: string = ''
+
     for (let i = 0; i < numComments; i++) {
         audioFilter = audioFilter.concat('[' + (i + 1) + ':a]')
     }
+
     audioFilter = audioFilter.concat(
         'concat=n=' + numComments + ':a=1:v=0[concatAudio]',
     )
-    filters = filters.concat(audioFilter)
 
-    return filters.join(';')
+    return audioFilter
 }
 
 function getOverlayCommand(
