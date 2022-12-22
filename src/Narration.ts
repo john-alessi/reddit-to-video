@@ -11,13 +11,8 @@ import config from 'mespeak/src/mespeak_config.json'
 import { Comment } from './ThreadData'
 
 export interface INarrator {
-    narrate: (comment: Comment, voice: string) => Promise<Audio>
+    narrate: (comment: Comment, voice: string) => Promise<string>
     getVoices: () => Promise<string[]>
-}
-
-export interface Audio {
-    url: string
-    duration: number
 }
 
 export class MeSpeakNarrator implements INarrator {
@@ -35,12 +30,11 @@ export class MeSpeakNarrator implements INarrator {
         return ['en-us']
     }
 
-    async narrate(comment: Comment, voice: string): Promise<Audio> {
+    async narrate(comment: Comment, voice: string): Promise<string> {
         let url = speak((comment.title ?? '') + '  ' + (comment.body ?? ''), {
             rawdata: 'mime',
         })
-        let duration = await getAudioDuration(url)
-        return { url: url, duration: duration }
+        return url
     }
 }
 
@@ -65,7 +59,7 @@ export class UberduckNarrator implements INarrator {
 
     async getVoices() {
         let response = await window.fetch(
-            `https://api.uberduck.ai/voices?mode=tts-all`,
+            `https://corsproxy.azure-api.net/voices`,
             {
                 method: 'GET',
                 headers: {
@@ -79,12 +73,11 @@ export class UberduckNarrator implements INarrator {
         return json.map((v: any) => v.name)
     }
 
-    async narrate(comment: Comment, voice: string): Promise<Audio> {
+    async narrate(comment: Comment, voice: string): Promise<string> {
         let text = (comment.title ?? '') + '  ' + (comment.body ?? '')
         let audioId = await this.getAudioId(text, voice)
         let audioUrl = await this.getAudioUrl(audioId)
-        let duration = await getAudioDuration(audioUrl)
-        return { url: audioUrl, duration: duration }
+        return audioUrl
     }
 
     getAudioId(text: string, voice: string): Promise<string> {
@@ -96,7 +89,7 @@ export class UberduckNarrator implements INarrator {
         return new Promise<string>((resolve, reject) => {
             const tryGetId = async (timeout: number) => {
                 let response = await window.fetch(
-                    'https://api.uberduck.ai/speak',
+                    'https://corsproxy.azure-api.net/speak',
                     {
                         method: 'POST',
                         body: `{"speech": "${formattedText}","voice": "${voice}"}`,
@@ -149,15 +142,4 @@ export class UberduckNarrator implements INarrator {
             tryGetStatus()
         })
     }
-}
-
-function getAudioDuration(audioUrl: string): Promise<number> {
-    return new Promise<number>((resolve) => {
-        let audioElement = new Audio()
-        audioElement.addEventListener('loadedmetadata', (e) => {
-            resolve((e.target as HTMLAudioElement).duration)
-        })
-        audioElement.crossOrigin = 'anonymous'
-        audioElement.src = audioUrl
-    })
 }

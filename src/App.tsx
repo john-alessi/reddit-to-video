@@ -3,12 +3,7 @@ import { FfmpegHelper, SequentialImageOverlay } from './FfmpegHelper'
 
 import { generateImage } from './ImageGeneration'
 import { getThreadData } from './ThreadData'
-import {
-    Audio,
-    INarrator,
-    MeSpeakNarrator,
-    UberduckNarrator,
-} from './Narration'
+import { INarrator, MeSpeakNarrator, UberduckNarrator } from './Narration'
 
 import './App.css'
 
@@ -46,29 +41,29 @@ export default function App(): JSX.Element {
         setStatusMessage('downloading comment thread...')
         let thread = await getThreadData(commentUrl)
         let imageOverlays: SequentialImageOverlay[] = []
-        let audioClips: Audio[] = []
+        let audioClips: string[] = []
 
         await ffmpeg.fetchAndWriteFile('background_video.mp4', video as File)
 
         for (let i = 0; i < thread.length; i++) {
             setStatusMessage(`generating audio ${i + 1}/${thread.length}`)
-            let audio = await narrator.narrate(thread[i], currentVoice)
-            audioClips = audioClips.concat(audio)
+            let audioUrl = await narrator.narrate(thread[i], currentVoice)
+            audioClips = audioClips.concat(audioUrl)
         }
+
+        let audioDurations = await ffmpeg.concatAudioOverInput(
+            audioClips,
+            'background_video.mp4',
+            BG_VID_PATH,
+        )
 
         for (let i = 0; i < thread.length; i++) {
             setStatusMessage(`generating image ${i + 1}/${thread.length}`)
             imageOverlays = imageOverlays.concat({
                 imageUrl: await generateImage(thread[i]),
-                duration: audioClips[i].duration,
+                duration: audioDurations[i],
             })
         }
-
-        await ffmpeg.concatAudioOverInput(
-            audioClips,
-            'background_video.mp4',
-            BG_VID_PATH,
-        )
 
         await ffmpeg.renderSequentialImageOverlay(
             BG_VID_PATH,
@@ -110,7 +105,7 @@ export default function App(): JSX.Element {
                     type={'radio'}
                     name={'tts'}
                     value={'uberduck'}
-                    disabled={true}
+                    disabled={false}
                     onChange={async () => {
                         setNarrator(uberduckNarrator)
                         setVoices(await uberduckNarrator.getVoices())
@@ -136,21 +131,21 @@ export default function App(): JSX.Element {
                             uberduckNarrator.setApiSecret(e.target.value)
                         }></input>
                 </div>
-            </div>
-            <div hidden={false}>
-                <label>tts voice </label>
-                <input
-                    list='voices'
-                    spellCheck='false'
-                    onChange={(e) => {
-                        setCurrentVoice(e.target.value)
-                    }}
-                />
-                <datalist id='voices'>
-                    {voices.map((v) => (
-                        <option value={v}>{v}</option>
-                    ))}
-                </datalist>
+                <div>
+                    <label>tts voice </label>
+                    <input
+                        list='voices'
+                        spellCheck='false'
+                        onChange={(e) => {
+                            setCurrentVoice(e.target.value)
+                        }}
+                    />
+                    <datalist id='voices'>
+                        {voices.map((v) => (
+                            <option value={v}>{v}</option>
+                        ))}
+                    </datalist>
+                </div>
             </div>
             <div>
                 <label>background video </label>

@@ -1,5 +1,4 @@
 import { createFFmpeg, fetchFile, FFmpeg } from '@ffmpeg/ffmpeg'
-import { Audio } from './Narration'
 
 export interface SequentialImageOverlay {
     imageUrl: string
@@ -28,26 +27,26 @@ export class FfmpegHelper {
     }
 
     writeFile(path: string, data: string | Uint8Array): void {
-        return this.instance.FS('writeFile', path, data)
+        this.instance.FS('writeFile', path, data)
     }
 
-    async fetchAndWriteFile(path: string, data: File): Promise<void> {
-        return this.writeFile(path, await fetchFile(data))
+    async fetchAndWriteFile(path: string, data: string | File): Promise<void> {
+        this.writeFile(path, await fetchFile(data))
     }
 
     async concatAudioOverInput(
-        audioClips: Audio[],
+        audioClips: string[],
         inputVideo: string,
         outputVideo: string,
-    ) {
+    ): Promise<number[]> {
+        let audioDurations: number[] = []
+        let totalDuration = 0
+        let loggedBgVideoDuration = false
         let audioCommand: string[] = ['-stream_loop', '-1', '-i', inputVideo]
-        let totalDuration = audioClips
-            .map((a) => a.duration)
-            .reduce((a, b) => a + b)
         for (let i = 0; i < audioClips.length; i++) {
             let audioPath = 'audio_' + i + '.wav'
+            await this.fetchAndWriteFile(audioPath, audioClips[i])
             audioCommand = audioCommand.concat('-i', audioPath)
-            this.writeFile(audioPath, await fetchFile(audioClips[i].url))
         }
         audioCommand = audioCommand.concat(
             '-filter_complex',
@@ -59,11 +58,23 @@ export class FfmpegHelper {
             '-preset',
             'ultrafast',
             '-t',
-            Math.ceil(totalDuration).toString(),
+            '70',
             outputVideo,
         )
-        this.setLogger('adding audio', totalDuration)
+        this.setLogger(
+            (progress: number) =>
+                this.logProgress('stitching audio', progress / totalDuration),
+            (duration: number) => {
+                if (loggedBgVideoDuration) {
+                    audioDurations = audioDurations.concat(duration)
+                    totalDuration += duration
+                } else {
+                    loggedBgVideoDuration = true
+                }
+            },
+        )
         await this.instance.run.apply(this.instance, audioCommand)
+        return audioDurations
     }
 
     async renderSequentialImageOverlay(
@@ -90,15 +101,25 @@ export class FfmpegHelper {
                 inputVideo,
                 'out_' + batch + '.mp4',
             )
-            this.setLogger(
-                `overlaying clip ${batch + 1}/${Math.ceil(images.length / 10)}`,
-                timestamps[start + numComments] - timestamps[start],
+            this.setLogger((progress: number) =>
+                this.logProgress(
+                    `overlaying clip ${batch + 1}/${Math.ceil(
+                        images.length / 10,
+                    )}`,
+                    progress /
+                        (timestamps[start + numComments] - timestamps[start]),
+                ),
             )
             await this.instance.run.apply(this.instance, command)
             batch++
         }
 
-        this.setLogger('stitching clips', timestamps[timestamps.length - 1])
+        this.setLogger((progress: number) =>
+            this.logProgress(
+                'stitching clips',
+                progress / timestamps[timestamps.length - 1],
+            ),
+        )
 
         let concatInputs: string[] = []
         for (let i = 0; i < batch; i++) {
@@ -118,23 +139,43 @@ export class FfmpegHelper {
         )
     }
 
-    setLogger(description: string, totalDuration: number) {
+    setLogger(
+        progressCallback?: (timestamp: number) => void,
+        durationCallback?: (duration: number) => void,
+    ) {
+        let durationRgx = /Duration: (\d\d:\d\d:\d\d\.\d\d)/
+        let progressRgx = /time=(\d\d:\d\d:\d\d\.\d\d)/
         this.instance.setLogger(
             (logParams: { type: string; message: string }) => {
                 if (
+                    progressCallback &&
                     logParams.type == 'fferr' &&
-                    /time=(\d\d:\d\d:\d\d\.\d\d)/.test(logParams.message)
+                    progressRgx.test(logParams.message)
                 ) {
-                    let match = logParams.message.match(
-                        /time=(\d\d:\d\d:\d\d\.\d\d)/,
-                    )
+                    let match = logParams.message.match(progressRgx)
                     if (match != null && match[1] != null) {
                         let hms = match[1].split(':')
                         let seconds =
                             60 * 60 * parseInt(hms[0], 10) +
                             60 * parseInt(hms[1], 10) +
                             parseFloat(hms[2])
-                        this.logProgress(description, seconds / totalDuration)
+                        progressCallback(seconds)
+                    }
+                }
+
+                if (
+                    durationCallback &&
+                    logParams.type == 'fferr' &&
+                    durationRgx.test(logParams.message)
+                ) {
+                    let match = logParams.message.match(durationRgx)
+                    if (match != null && match[1] != null) {
+                        let hms = match[1].split(':')
+                        let seconds =
+                            60 * 60 * parseInt(hms[0], 10) +
+                            60 * parseInt(hms[1], 10) +
+                            parseFloat(hms[2])
+                        durationCallback(seconds)
                     }
                 }
             },
