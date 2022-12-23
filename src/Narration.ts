@@ -133,7 +133,12 @@ export class UberduckNarrator implements INarrator {
                     (await jobStatusResponse.json()) as UberduckJobStatus
 
                 if (jobStatus.finished_at != null && jobStatus.path != null) {
-                    resolve(jobStatus.path)
+                    let uberduckUri = jobStatus.path
+                    let proxiedUri = `https://corsproxy.azure-api.net/audio/${uberduckUri
+                        .split('/')
+                        .slice(-2)
+                        .join('/')}`
+                    resolve(proxiedUri)
                 } else {
                     setTimeout(tryGetStatus, 1000)
                 }
