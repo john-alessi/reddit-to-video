@@ -6,11 +6,15 @@ import { getThreadData } from './ThreadData'
 import { INarrator, MeSpeakNarrator, UberduckNarrator } from './Narration'
 
 import './App.css'
+import { AuthProvider, TAuthConfig } from 'react-oauth2-code-pkce'
 
 const defaultUrl =
     'https://www.reddit.com/r/interestingasfuck/comments/wiolan/comment/ijd09gb/?utm_source=share&utm_medium=web2x&context=3'
 
-const oidConfig = 'https://oauth.uberduck.ai/.well-known/openid-configuration'
+const uberduckOidConfigUrl =
+    'https://corsproxy.azure-api.net/openid-configuration'
+
+const uberduckClientId = 'CLIENT_ID'
 
 const ffmpeg = new FfmpegHelper()
 const meSpeakNarrator = new MeSpeakNarrator()
@@ -28,12 +32,16 @@ export default function App(): JSX.Element {
     const [currentVoice, setCurrentVoice] = useState(voices[0])
     const [statusMessage, setStatusMessage] = useState<string>()
     const [narrator, setNarrator] = useState<INarrator>(meSpeakNarrator)
+    const [uberduckAuthConfig, setUberduckAuthConfig] = useState<TAuthConfig>()
 
     const load = async () => {
         await ffmpeg.init((description, progress) => {
             setStatusMessage(`${description} (${(progress * 100).toFixed(2)}%)`)
         })
         setVoices(await narrator.getVoices())
+        setUberduckAuthConfig(
+            await getAuthConfig(uberduckClientId, uberduckOidConfigUrl),
+        )
         setReady(true)
     }
 
@@ -115,6 +123,11 @@ export default function App(): JSX.Element {
                 UberDuck (work in progress)
             </label>
             <div hidden={narrator !== uberduckNarrator}>
+                {uberduckAuthConfig && (
+                    <AuthProvider authConfig={uberduckAuthConfig}>
+                        login?
+                    </AuthProvider>
+                )}
                 <div>
                     <label>api key </label>
                     <input
@@ -199,4 +212,20 @@ export default function App(): JSX.Element {
             )}
         </div>
     )
+}
+
+async function getAuthConfig(
+    clientId: string,
+    configUrl: string,
+): Promise<TAuthConfig> {
+    let response = await window.fetch(configUrl)
+    let json = await response.json()
+    let config: TAuthConfig = {
+        clientId: clientId,
+        authorizationEndpoint: json.authorization_endpoint,
+        tokenEndpoint: json.token_endpoint,
+        redirectUri: document.URL,
+        scope: 'openid',
+    }
+    return config
 }
